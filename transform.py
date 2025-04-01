@@ -45,9 +45,9 @@ def plot_tn(
         gamma: coefficient of the negative linear term in the transcription network
         beta: additive constant in x_top ODE
     """
-    tn_odes, tn_inits, tn_exprs = ode2tn(odes, initial_values, gamma, beta)
+    tn_odes, tn_inits, tn_ratios = ode2tn(odes, initial_values, gamma, beta)
     dependent_symbols_tn = dict(dependent_symbols) if dependent_symbols is not None else {}
-    dependent_symbols_tn.update(tn_exprs)
+    dependent_symbols_tn.update(tn_ratios)
     symbols_to_plot = dependent_symbols_tn if symbols_to_plot is None else symbols_to_plot
     return gpac.plot(
         odes=tn_odes,
@@ -90,7 +90,7 @@ def ode2tn(
         beta: additive constant in x_top ODE
 
     Return:
-        triple (tn_odes, tn_inits, tn_exprs), where `tn_exprs` is a dict mapping each original symbol ``x``
+        triple (tn_odes, tn_inits, tn_ratios), where `tn_ratios` is a dict mapping each original symbol ``x``
         in the original ODEs to the sympy.Expr ``x_top / x_bot``.
     """
     # normalize initial values dict to use symbols as keys
@@ -142,12 +142,12 @@ def normalized_ode2tn(
     # Assumes ode2tn has normalized and done error-checking
 
     sym2pair: dict[sympy.Symbol, tuple[sympy.Symbol, sympy.Symbol]] = {}
-    tn_exprs: dict[sympy.Symbol, sympy.Expr] = {}
+    tn_ratios: dict[sympy.Symbol, sympy.Expr] = {}
     for x in odes.keys():
         # create x_t, x_b for each symbol x
         x_top, x_bot = sympy.symbols(f'{x}_t {x}_b')
         sym2pair[x] = (x_top, x_bot)
-        tn_exprs[x] = x_top / x_bot
+        tn_ratios[x] = x_top / x_bot
 
     tn_odes: dict[sympy.Symbol, sympy.Expr] = {}
     tn_inits: dict[sympy.Symbol, float] = {}
@@ -167,7 +167,7 @@ def normalized_ode2tn(
         tn_inits[x_top] = initial_values[x]
         tn_inits[x_bot] = 1
 
-    return tn_odes, tn_inits, tn_exprs
+    return tn_odes, tn_inits, tn_ratios
 
 
 def split_polynomial(expr: sympy.Expr | sympy.polys.Poly) -> tuple[sympy.Expr, sympy.Expr]:
