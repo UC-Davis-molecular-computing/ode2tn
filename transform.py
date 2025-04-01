@@ -163,7 +163,7 @@ def normalized_ode2tn(
 
         x_top, x_bot = sym2pair[x]
         tn_odes[x_top] = beta + p_pos * x_bot - gamma * x_top
-        tn_odes[x_bot] = p_neg * x_top ** 2 / x_top + beta * x_bot / x_top - gamma * x_bot
+        tn_odes[x_bot] = p_neg * x_bot ** 2 / x_top + beta * x_bot / x_top - gamma * x_bot
         tn_inits[x_top] = initial_values[x]
         tn_inits[x_bot] = 1
         tn_exprs[x] = x_top / x_bot
