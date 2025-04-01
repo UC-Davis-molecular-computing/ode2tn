@@ -49,7 +49,7 @@ def plot_tn(
     dependent_symbols_tn = dict(dependent_symbols) if dependent_symbols is not None else {}
     dependent_symbols_tn.update(tn_exprs)
     symbols_to_plot = dependent_symbols_tn if symbols_to_plot is None else symbols_to_plot
-    gpac.plot(
+    return gpac.plot(
         odes=tn_odes,
         initial_values=tn_inits,
         t_eval=t_eval,
