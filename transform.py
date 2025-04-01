@@ -76,8 +76,8 @@ def ode2tn(
         beta: float,
 ) -> tuple[dict[sympy.Symbol, sympy.Expr], dict[sympy.Symbol, float], dict[sympy.Symbol, sympy.Expr]]:
     """
-    Maps polynomial ODEs and and initial values to transcription network (represented by ODEs with positive Laurent polynomials and
-    negative linear term) simulating it, as well as initial values.
+    Maps polynomial ODEs and and initial values to transcription network (represented by ODEs with positive
+    Laurent polynomials and negative linear term) simulating it, as well as initial values.
 
     Args:
         odes: polynomial ODEs,
