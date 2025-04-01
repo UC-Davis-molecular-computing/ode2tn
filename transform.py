@@ -192,7 +192,7 @@ def split_polynomial(expr: sympy.Expr | sympy.polys.Poly) -> tuple[sympy.Expr, s
 
     # Verify it's a polynomial
     if not expr.is_polynomial():
-        raise ValueError("Expression is not a polynomial")
+        raise ValueError(f"Expression {expr} is not a polynomial")
 
     # Initialize empty expressions for positive and negative parts
     p1 = sympy.S(0)
