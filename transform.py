@@ -162,8 +162,10 @@ def normalized_ode2tn(
             p_neg = p_neg.subs(sym, sym_top / sym_bot)
 
         x_top, x_bot = sym2pair[x]
-        tn_odes[x_top] = beta + p_pos * x_bot - gamma * x_top
-        tn_odes[x_bot] = p_neg * x_bot ** 2 / x_top + beta * x_bot / x_top - gamma * x_bot
+        # tn_odes[x_top] = beta + p_pos * x_bot - gamma * x_top
+        # tn_odes[x_bot] = p_neg * x_bot ** 2 / x_top + beta * x_bot / x_top - gamma * x_bot
+        tn_odes[x_top] = beta * x_top / x_bot + p_pos * x_bot - gamma * x_top
+        tn_odes[x_bot] = beta + p_neg * x_bot ** 2 / x_top - gamma * x_bot
         tn_inits[x_top] = initial_values[x]
         tn_inits[x_bot] = 1
 
@@ -217,8 +219,17 @@ def split_polynomial(expr: sympy.Expr | sympy.polys.Poly) -> tuple[sympy.Expr, s
             else:
                 # For negative coefficients, add the negated term to p2
                 p2 += -term
+    elif expanded.is_Mul:
+        # If it's a single term, just check the sign; is_Mul for things like x*y or -x (represented as -1*x)
+        coeff = next((arg for arg in expanded.args if arg.is_number), 1)
+        if coeff > 0:
+            p1 = expanded
+        else:
+            p2 = -expanded
     else:
-        # For single terms, just check the sign
+        # For single terms without multiplication, just check the sign;
+        # in tests a term like -x is actually represented as -1*x, so that's covered by the above elif,
+        # but in case of a negative constant like -2, this is handled here
         if expanded > 0:
             p1 = expanded
         else:
@@ -235,20 +246,30 @@ def main():
     from math import pi
     import numpy as np
     import sympy
+    import gpac
+    from transform import plot_tn, ode2tn
 
-    x, y = sympy.symbols('x y')
+    xt, xb = sympy.symbols('x_t x_b')
+    x = sympy.symbols('x')
     odes = {
-        x: y - 2,
-        y: -x + 2,
+        x: -x,
     }
     inits = {
-        x: 2,
-        y: 1,
+        x: 1,
     }
-    gamma = 1
+    gamma = 2
     beta = 1
-    t_eval = np.linspace(0, 6 * pi, 200)
-    plot_tn(odes, inits, gamma, beta, t_eval=t_eval)
+    t_eval = np.linspace(0, 1, 500)
+    tn_odes, tn_inits, tn_ratios = ode2tn(odes, inits, gamma, beta)
+    from IPython.display import display
+    for sym, expr in tn_odes.items():
+        print(f"{sym}' = ", end='')
+        display(expr)
+    print(f'{tn_inits=}')
+    print(f'{tn_ratios=}')
+    figsize = (15, 6)
+    plot_tn(odes, inits, gamma, beta, t_eval=t_eval, figure_size=figsize, symbols_to_plot=[[x, y], [xt, xb, yt, yb]])
+
 
 if __name__ == '__main__':
     main()
