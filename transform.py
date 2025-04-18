@@ -196,8 +196,8 @@ def split_polynomial(expr: sympy.Expr | sympy.polys.Poly) -> tuple[sympy.Expr, s
         raise ValueError(f"Expression {expr} is not a polynomial")
 
     # Initialize empty expressions for positive and negative parts
-    p1 = sympy.S(0)
-    p2 = sympy.S(0)
+    p_pos = sympy.S(0)
+    p_neg = sympy.S(0)
 
     # Convert to expanded form to make sure all terms are separate
     expanded = sympy.expand(expr)
@@ -215,27 +215,30 @@ def split_polynomial(expr: sympy.Expr | sympy.polys.Poly) -> tuple[sympy.Expr, s
 
             # Add to the appropriate part based on sign
             if coeff > 0:
-                p1 += term
+                p_pos += term
             else:
                 # For negative coefficients, add the negated term to p2
-                p2 += -term
+                p_neg += -term
     elif expanded.is_Mul:
         # If it's a single term, just check the sign; is_Mul for things like x*y or -x (represented as -1*x)
         coeff = next((arg for arg in expanded.args if arg.is_number), 1)
         if coeff > 0:
-            p1 = expanded
+            p_pos = expanded
         else:
-            p2 = -expanded
+            p_neg = -expanded
+    elif expanded.is_Atom:
+        # since negative terms are technically Mul, i.e., -1*x, if it is an atom then it is positive
+        p_pos = expanded
     else:
-        # For single terms without multiplication, just check the sign;
+        # For single constant terms without multiplication, just check the sign;
         # in tests a term like -x is actually represented as -1*x, so that's covered by the above elif,
         # but in case of a negative constant like -2, this is handled here
         if expanded > 0:
-            p1 = expanded
+            p_pos = expanded
         else:
-            p2 = -expanded
+            p_neg = -expanded
 
-    return p1, p2
+    return p_pos, p_neg
 
 
 def comma_separated(elts: Iterable[Any]) -> str:
@@ -246,20 +249,22 @@ def main():
     from math import pi
     import numpy as np
     import sympy
-    import gpac
-    from transform import plot_tn, ode2tn
 
-    xt, xb = sympy.symbols('x_t x_b')
-    x = sympy.symbols('x')
+    x3t, x3b, y2t, y2b = sympy.symbols('x3_t x3_b y2_t y2_b', positive=True)
+    x3, y2 = sympy.symbols('x_3 y_2', positive=True)
     odes = {
-        x: -x,
+        x3: y2,
+        y2: x3 * y2,
     }
+    eps = 0.01
     inits = {
-        x: 1,
+        x3: 2,
+        y2: eps,
     }
-    gamma = 2
-    beta = 1
-    t_eval = np.linspace(0, 1, 500)
+    gamma = 3  # not sure yet
+    beta = 2  # not sure yet
+    t_eval = np.linspace(0, 12 * pi, 1000)
+
     tn_odes, tn_inits, tn_ratios = ode2tn(odes, inits, gamma, beta)
     from IPython.display import display
     for sym, expr in tn_odes.items():
@@ -267,8 +272,6 @@ def main():
         display(expr)
     print(f'{tn_inits=}')
     print(f'{tn_ratios=}')
-    figsize = (15, 6)
-    plot_tn(odes, inits, gamma, beta, t_eval=t_eval, figure_size=figsize, symbols_to_plot=[[x, y], [xt, xb, yt, yb]])
 
 
 if __name__ == '__main__':
