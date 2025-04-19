@@ -11,10 +11,13 @@ from scipy.integrate._ivp.ivp import OdeResult  # noqa
 def plot_tn(
         odes: dict[sp.Symbol | str, sp.Expr | str | float],
         initial_values: dict[sp.Symbol | str, float],
+        *,
         gamma: float,
         beta: float,
+        scale: float = 1.0,
         t_eval: Iterable[float] | None = None,
         t_span: tuple[float, float] | None = None,
+        resets: dict[float, dict[sp.Symbol | str, float]] | None = None,
         dependent_symbols: dict[sp.Symbol | str, sp.Expr | str] | None = None,
         figure_size: tuple[float, float] = (10, 3),
         symbols_to_plot: Iterable[sp.Symbol | str] |
@@ -48,21 +51,78 @@ def plot_tn(
             dict of sympy symbols or strings (representing symbols) to floats
         gamma: coefficient of the negative linear term in the transcription network
         beta: additive constant in x_top ODE
+        scale: "scaling factor" for the transcription network ODEs. Each variable `x` is replaced by a pair
+            (`x_top`, `x_bot`). The initial `x_bot` value is `scale`, and the initial `x_top` value is
+            `x*scale`.
+        resets:
+            If specified, this is a dict mapping times to "configurations"
+            (i.e., dict mapping symbols/str to values).
+            The configurations are used to set the values of the symbols manually during the ODE integration
+            at specific times.
+            Any symbols not appearing as keys in `resets` are left at their current values.
+            The keys can either represent the `x_top` or `x_bot` variables whose ratio represents the original variable
+            (a key in parameter `odes`), or the original variables themselves.
+            If a new `x_top` or `x_bot` variable is used, its value is set directly.
+            If an original variable `x` is used, its then the `x_top` and `x_bot` variables are set
+            as with transforming `inits` to `tn_inits` in `ode2tn`:
+            `x_top` is set to `x*scale`, and `x_bot` is set to `scale`.
+            The OdeResult returned (the one returned by `solve_ivp` in scipy) will have two additional fields:
+            `reset_times` and `reset_indices`, which are lists of the times and indices in `sol.t`
+            corresponding to the times when the resets were applied.
+            Raises a ValueError if any time lies outside the integration interval, or if `resets` is empty,
+            if a symbol is invalid, or if there are symbols representing both an original variable `x` and one of
+            its `x_top` or `x_bot` variables.
 
     Returns:
         Typically None, but if return_ode_result is True, returns the result of the ODE integration.
         See documentation of `gpac.plot` for details.
     """
-    tn_odes, tn_inits, tn_ratios = ode2tn(odes, initial_values, gamma, beta)
+    tn_odes, tn_inits, tn_ratios = ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale)
     dependent_symbols_tn = dict(dependent_symbols) if dependent_symbols is not None else {}
     dependent_symbols_tn.update(tn_ratios)
     symbols_to_plot = dependent_symbols_tn if symbols_to_plot is None else symbols_to_plot
+
+    if resets is not None:
+        # make copy since we are going to change it
+        new_resets = {}
+        for time, reset in resets.items():
+            new_resets[time] = {}
+            for x, val in reset.items():
+                new_resets[time][x] = val
+        resets = new_resets
+        # normalize resets keys and check that variables are valid
+        for reset in resets.values():
+            for x, val in reset.items():
+                if isinstance(x, str):
+                    del reset[x]
+                    x = sp.symbols(x)
+                    reset[x] = val
+                if x not in odes.keys() and x not in tn_odes.keys():
+                    raise ValueError(f"Symbol {x} not found in original variables: {', '.join(odes.keys())},\n"
+                                     f"nor found in transcription network variables: {', '.join(tn_odes.keys())}")
+            # ensure if original variable x is in resets, then neither x_top nor x_bot are in the resets
+            # and substitute x_top and x_bot for x in resets
+            for x, ratio in tn_ratios.items():
+                # x is an original; so make sure neither x_top nor x_bot are in the reset dict
+                if x in reset:
+                    xt,xb = sp.fraction(ratio)
+                    if xt in reset:
+                        raise ValueError(f'Cannot use "top" variable {xt} in resets '
+                                         f'if original variable {x} is also used')
+                    if xb in reset:
+                        raise ValueError(f'Cannot use "bottom" variable {xb} in resets '
+                                         f'if original variable {x} is also used')
+                    reset[xt] = reset[x] * scale
+                    reset[xb] = scale
+                    del reset[x]
+
     return gp.plot(
         odes=tn_odes,
         initial_values=tn_inits,
         t_eval=t_eval,
         t_span=t_span,
         dependent_symbols=dependent_symbols_tn,
+        resets=resets,
         figure_size=figure_size,
         symbols_to_plot=symbols_to_plot,
         show=show,
@@ -80,8 +140,10 @@ def plot_tn(
 def ode2tn(
         odes: dict[sp.Symbol | str, sp.Expr | str | float],
         initial_values: dict[sp.Symbol | str, float],
+        *,
         gamma: float,
         beta: float,
+        scale: float = 1.0,
 ) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, sp.Expr]]:
     """
     Maps polynomial ODEs and and initial values to transcription network (represented by ODEs with positive
@@ -96,6 +158,9 @@ def ode2tn(
             dict of sympy symbols or strings (representing symbols) to floats
         gamma: coefficient of the negative linear term in the transcription network
         beta: additive constant in x_top ODE
+        scale: "scaling factor" for the transcription network ODEs. Each variable `x` is replaced by a pair
+            (`x_top`, `x_bot`). The initial `x_bot` value is `scale`, and the initial `x_top` value is
+            `x*scale`.
 
     Return:
         triple (`tn_odes`, `tn_inits`, `tn_ratios`), where `tn_ratios` is a dict mapping each original symbol ``x``
@@ -138,14 +203,16 @@ def ode2tn(
         if not expr.is_polynomial():
             raise ValueError(f"ODE for {symbol}' is not a polynomial: {expr}")
 
-    return normalized_ode2tn(odes, initial_values, gamma, beta)
+    return normalized_ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale)
 
 
 def normalized_ode2tn(
         odes: dict[sp.Symbol, sp.Expr],
         initial_values: dict[sp.Symbol, float],
+        *,
         gamma: float,
         beta: float,
+        scale: float,
 ) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, sp.Expr]]:
     # Assumes ode2tn has normalized and done error-checking
 
@@ -173,8 +240,8 @@ def normalized_ode2tn(
         # tn_odes[x_bot] = p_neg * x_bot ** 2 / x_top + beta * x_bot / x_top - gamma * x_bot
         tn_odes[x_top] = beta * x_top / x_bot + p_pos * x_bot - gamma * x_top
         tn_odes[x_bot] = beta + p_neg * x_bot ** 2 / x_top - gamma * x_bot
-        tn_inits[x_top] = initial_values[x]
-        tn_inits[x_bot] = 1
+        tn_inits[x_top] = initial_values[x]*scale
+        tn_inits[x_bot] = scale
 
     return tn_odes, tn_inits, tn_ratios
 
@@ -264,6 +331,7 @@ def main():
         (y_sp >> gp.empty).k(6.5),
     ]
     odes = gp.crn_to_odes(rxns)
+    # extract symbols from odes
     for var in odes.keys():
         if var.name == 'x':
             x = var
@@ -272,13 +340,44 @@ def main():
     # for v,ode in odes.items():
     #     print(f"{v}' = {ode}")
     inits = {
-        x: 2,
-        y: 1,
+        x: 1,
+        y: 0.5,
     }
-    gamma = 2
+    gamma = 20
     beta = 1
+    scale = 0.1
+    import numpy as np
+    t_eval = np.linspace(0, 20, 500)
 
-    tn_odes, tn_inits, tn_ratios = ode2tn(odes, inits, gamma, beta)
+    tn_odes, tn_inits, tn_ratios = ode2tn(odes, inits, gamma=gamma, beta=beta, scale=scale)
+    for ratio_symbol in tn_inits.keys():
+        if ratio_symbol.name == 'x_t':
+            xt = ratio_symbol
+        if ratio_symbol.name == 'x_b':
+            xb = ratio_symbol
+        if ratio_symbol.name == 'y_t':
+            yt = ratio_symbol
+        if ratio_symbol.name == 'y_b':
+            yb = ratio_symbol
+    from IPython.display import display
+    for sym, expr in tn_odes.items():
+        print(f"{sym}' = ", end='')
+        display(sp.simplify(expr))
+    print(f'{tn_inits=}')
+    print(f'{tn_ratios=}')
+    # for var, val in tn_inits.items():
+    #     tn_inits[var] *= 0.1
+    # print(f'after reducing t/b values by 10x: {tn_inits=}')
+    figsize = (15, 6)
+    resets = {
+        5: {x: 0.5},
+        10: {x: 0.01},
+        15: {x: 0.5},
+    }
+    scale = 0.1
+    plot_tn(odes, inits, gamma=gamma, beta=beta, scale=scale,
+            t_eval=t_eval, resets=resets, figure_size=figsize,
+            symbols_to_plot=[[x, y], [xt, xb, yt, yb]])
 
 
 if __name__ == '__main__':
