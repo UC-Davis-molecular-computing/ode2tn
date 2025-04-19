@@ -3,21 +3,21 @@ import re
 from typing import Callable
 
 from scipy.integrate import OdeSolver
-import gpac
-import sympy
+import gpac as gp
+import sympy as sp
 
 
 def plot_tn(
-        odes: dict[sympy.Symbol | str, sympy.Expr | str | float],
-        initial_values: dict[sympy.Symbol | str, float],
+        odes: dict[sp.Symbol | str, sp.Expr | str | float],
+        initial_values: dict[sp.Symbol | str, float],
         gamma: float,
         beta: float,
         t_eval: Iterable[float] | None = None,
         t_span: tuple[float, float] | None = None,
-        dependent_symbols: dict[sympy.Symbol | str, sympy.Expr | str] | None = None,
+        dependent_symbols: dict[sp.Symbol | str, sp.Expr | str] | None = None,
         figure_size: tuple[float, float] = (10, 3),
-        symbols_to_plot: Iterable[sympy.Symbol | str] |
-                         Iterable[Iterable[sympy.Symbol | str]] |
+        symbols_to_plot: Iterable[sp.Symbol | str] |
+                         Iterable[Iterable[sp.Symbol | str]] |
                          str |
                          re.Pattern |
                          Iterable[re.Pattern] |
@@ -37,7 +37,7 @@ def plot_tn(
 
     Args:
         odes: polynomial ODEs,
-            dict of sympy symbols or strings (representing symbols) to sympy expressions or strings or floats
+            dict of sp symbols or strings (representing symbols) to sympy expressions or strings or floats
             (representing RHS of ODEs)
             Raises ValueError if any of the ODEs RHS is not a polynomial
         initial_values: initial values,
@@ -49,7 +49,7 @@ def plot_tn(
     dependent_symbols_tn = dict(dependent_symbols) if dependent_symbols is not None else {}
     dependent_symbols_tn.update(tn_ratios)
     symbols_to_plot = dependent_symbols_tn if symbols_to_plot is None else symbols_to_plot
-    return gpac.plot(
+    return gp.plot(
         odes=tn_odes,
         initial_values=tn_inits,
         t_eval=t_eval,
@@ -70,11 +70,11 @@ def plot_tn(
 
 
 def ode2tn(
-        odes: dict[sympy.Symbol | str, sympy.Expr | str | float],
-        initial_values: dict[sympy.Symbol | str, float],
+        odes: dict[sp.Symbol | str, sp.Expr | str | float],
+        initial_values: dict[sp.Symbol | str, float],
         gamma: float,
         beta: float,
-) -> tuple[dict[sympy.Symbol, sympy.Expr], dict[sympy.Symbol, float], dict[sympy.Symbol, sympy.Expr]]:
+) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, sp.Expr]]:
     """
     Maps polynomial ODEs and and initial values to transcription network (represented by ODEs with positive
     Laurent polynomials and negative linear term) simulating it, as well as initial values.
@@ -94,7 +94,7 @@ def ode2tn(
         in the original ODEs to the sympy.Expr ``x_top / x_bot``.
     """
     # normalize initial values dict to use symbols as keys
-    initial_values = {sympy.Symbol(symbol) if isinstance(symbol, str) else symbol: value
+    initial_values = {sp.Symbol(symbol) if isinstance(symbol, str) else symbol: value
                       for symbol, value in initial_values.items()}
 
     # normalize odes dict to use symbols as keys
@@ -102,9 +102,9 @@ def ode2tn(
     symbols_found_in_expressions = set()
     for symbol, expr in odes.items():
         if isinstance(symbol, str):
-            symbol = sympy.symbols(symbol)
+            symbol = sp.symbols(symbol)
         if isinstance(expr, (str, int, float)):
-            expr = sympy.sympify(expr)
+            expr = sp.sympify(expr)
         symbols_found_in_expressions.update(expr.free_symbols)
         odes_symbols[symbol] = expr
 
@@ -134,26 +134,25 @@ def ode2tn(
 
 
 def normalized_ode2tn(
-        odes: dict[sympy.Symbol, sympy.Expr],
-        initial_values: dict[sympy.Symbol, float],
+        odes: dict[sp.Symbol, sp.Expr],
+        initial_values: dict[sp.Symbol, float],
         gamma: float,
         beta: float,
-) -> tuple[dict[sympy.Symbol, sympy.Expr], dict[sympy.Symbol, float], dict[sympy.Symbol, sympy.Expr]]:
+) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, sp.Expr]]:
     # Assumes ode2tn has normalized and done error-checking
 
-    sym2pair: dict[sympy.Symbol, tuple[sympy.Symbol, sympy.Symbol]] = {}
-    tn_ratios: dict[sympy.Symbol, sympy.Expr] = {}
+    sym2pair: dict[sp.Symbol, tuple[sp.Symbol, sp.Symbol]] = {}
+    tn_ratios: dict[sp.Symbol, sp.Expr] = {}
     for x in odes.keys():
         # create x_t, x_b for each symbol x
-        x_top, x_bot = sympy.symbols(f'{x}_t {x}_b')
+        x_top, x_bot = sp.symbols(f'{x}_t {x}_b')
         sym2pair[x] = (x_top, x_bot)
         tn_ratios[x] = x_top / x_bot
 
-    tn_odes: dict[sympy.Symbol, sympy.Expr] = {}
-    tn_inits: dict[sympy.Symbol, float] = {}
+    tn_odes: dict[sp.Symbol, sp.Expr] = {}
+    tn_inits: dict[sp.Symbol, float] = {}
     for x, expr in odes.items():
-        polynomial = expr.as_poly()
-        p_pos, p_neg = split_polynomial(polynomial)
+        p_pos, p_neg = split_polynomial(expr)
 
         # replace sym with sym_top / sym_bot for each original symbol sym
         for sym in odes.keys():
@@ -172,7 +171,7 @@ def normalized_ode2tn(
     return tn_odes, tn_inits, tn_ratios
 
 
-def split_polynomial(expr: sympy.Expr | sympy.polys.Poly) -> tuple[sympy.Expr, sympy.Expr]:
+def split_polynomial(expr: sp.Expr) -> tuple[sp.Expr, sp.Expr]:
     """
     Split a polynomial into two parts:
     p1: monomials with positive coefficients
@@ -187,20 +186,22 @@ def split_polynomial(expr: sympy.Expr | sympy.polys.Poly) -> tuple[sympy.Expr, s
     Raises:
         ValueError: If the expression is not a polynomial
     """
-    # Convert Poly to Expr if needed
-    if isinstance(expr, sympy.polys.Poly):
-        expr = expr.as_expr()
+    if expr.is_constant():
+        if expr < 0:
+            return sp.S(0), -expr
+        else:
+            return expr, sp.S(0)
 
     # Verify it's a polynomial
     if not expr.is_polynomial():
         raise ValueError(f"Expression {expr} is not a polynomial")
 
     # Initialize empty expressions for positive and negative parts
-    p_pos = sympy.S(0)
-    p_neg = sympy.S(0)
+    p_pos = sp.S(0)
+    p_neg = sp.S(0)
 
     # Convert to expanded form to make sure all terms are separate
-    expanded = sympy.expand(expr)
+    expanded = sp.expand(expr)
 
     # For a sum, we can process each term
     if expanded.is_Add:
@@ -246,32 +247,28 @@ def comma_separated(elts: Iterable[Any]) -> str:
 
 
 def main():
-    from math import pi
-    import numpy as np
-    import sympy
-
-    x3t, x3b, y2t, y2b = sympy.symbols('x3_t x3_b y2_t y2_b', positive=True)
-    x3, y2 = sympy.symbols('x_3 y_2', positive=True)
-    odes = {
-        x3: y2,
-        y2: x3 * y2,
-    }
-    eps = 0.01
+    x_sp, y_sp = gp.species('x y')
+    rxns = [
+        x_sp >> x_sp + y_sp,
+        (3 * y_sp | 2 * y_sp).k(11).r(16.5),
+        (y_sp >> gp.empty).k(6.5),
+    ]
+    odes = gp.crn_to_odes(rxns)
+    for var in odes.keys():
+        if var.name == 'x':
+            x = var
+        if var.name == 'y':
+            y = var
+    # for v,ode in odes.items():
+    #     print(f"{v}' = {ode}")
     inits = {
-        x3: 2,
-        y2: eps,
+        x: 2,
+        y: 1,
     }
-    gamma = 3  # not sure yet
-    beta = 2  # not sure yet
-    t_eval = np.linspace(0, 12 * pi, 1000)
+    gamma = 2
+    beta = 1
 
     tn_odes, tn_inits, tn_ratios = ode2tn(odes, inits, gamma, beta)
-    from IPython.display import display
-    for sym, expr in tn_odes.items():
-        print(f"{sym}' = ", end='')
-        display(expr)
-    print(f'{tn_inits=}')
-    print(f'{tn_ratios=}')
 
 
 if __name__ == '__main__':
