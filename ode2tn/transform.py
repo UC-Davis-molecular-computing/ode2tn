@@ -11,11 +11,11 @@ from scipy.integrate._ivp.ivp import OdeResult  # noqa
 def plot_tn(
         odes: dict[sp.Symbol | str, sp.Expr | str | float],
         initial_values: dict[sp.Symbol | str, float],
+        t_eval: Iterable[float] | None = None,
         *,
         gamma: float,
         beta: float,
         scale: float = 1.0,
-        t_eval: Iterable[float] | None = None,
         t_span: tuple[float, float] | None = None,
         resets: dict[float, dict[sp.Symbol | str, float]] | None = None,
         dependent_symbols: dict[sp.Symbol | str, sp.Expr | str] | None = None,
