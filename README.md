@@ -1,5 +1,5 @@
 # ode-to-transcription-network
-This is a Python package to turn arbitrary polynomial ODEs into a transcriptional network simulating it.
+ode2tn is a Python package to turn arbitrary polynomial ODEs into a transcriptional network simulating it.
 
 See this paper for details: TODO
 
