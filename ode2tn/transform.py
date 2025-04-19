@@ -5,6 +5,7 @@ from typing import Callable
 from scipy.integrate import OdeSolver
 import gpac as gp
 import sympy as sp
+from scipy.integrate._ivp.ivp import OdeResult  # noqa
 
 
 def plot_tn(
@@ -31,9 +32,12 @@ def plot_tn(
         args: tuple | None = None,
         loc: str | tuple[float, float] = 'best',
         **options,
-) -> None:
+) -> OdeResult | None:
     """
     Plot transcription network (TN) ODEs and initial values.
+
+    For arguments other than odes, initial_values, gamma, and beta, see the documentation for
+    `plot` in the gpac library.
 
     Args:
         odes: polynomial ODEs,
@@ -44,6 +48,10 @@ def plot_tn(
             dict of sympy symbols or strings (representing symbols) to floats
         gamma: coefficient of the negative linear term in the transcription network
         beta: additive constant in x_top ODE
+
+    Returns:
+        Typically None, but if return_ode_result is True, returns the result of the ODE integration.
+        See documentation of `gpac.plot` for details.
     """
     tn_odes, tn_inits, tn_ratios = ode2tn(odes, initial_values, gamma, beta)
     dependent_symbols_tn = dict(dependent_symbols) if dependent_symbols is not None else {}
@@ -90,7 +98,7 @@ def ode2tn(
         beta: additive constant in x_top ODE
 
     Return:
-        triple (tn_odes, tn_inits, tn_ratios), where `tn_ratios` is a dict mapping each original symbol ``x``
+        triple (`tn_odes`, `tn_inits`, `tn_ratios`), where `tn_ratios` is a dict mapping each original symbol ``x``
         in the original ODEs to the sympy.Expr ``x_top / x_bot``.
     """
     # normalize initial values dict to use symbols as keys
@@ -178,13 +186,15 @@ def split_polynomial(expr: sp.Expr) -> tuple[sp.Expr, sp.Expr]:
     p2: monomials with negative coefficients (made positive)
 
     Args:
-        expr: A sympy expression or Poly object that is a polynomial
+        expr: A sympy Expression that is a polynomial
 
     Returns:
-        tuple[sp.Expr, sp.Expr]: (p1, p2) such that expr = p1 - p2
+        pair of sympy Expressions (`p1`, `p2`) such that expr = p1 - p2
 
     Raises:
-        ValueError: If the expression is not a polynomial
+        ValueError: If `expr` is not a polynomial. Note that the constants (sympy type ``Number``)
+        are not considered polynomials by the ``is_polynomial`` method, but we do consider them polynomials
+        and do not raise an exception in this case.
     """
     if expr.is_constant():
         if expr < 0:

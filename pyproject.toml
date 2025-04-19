@@ -1,0 +1,21 @@
+[project]
+name = "ode2tn"
+version = "1.0.0"
+description = "A Python package to turn arbitrary polynomial ODEs into a transcriptional network simulating it."
+authors = [
+    { name="Dave Doty", email="doty@ucdavis.edu" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "gpac",
+    "scipy>=1.15",
+    "sympy>=1.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/UC-Davis-molecular-computing/ode-to-transcription-network"
+Issues = "https://github.com/UC-Davis-molecular-computing/ode-to-transcription-network/issues"
+
+
