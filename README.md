@@ -58,7 +58,7 @@ showing that the variables `x` and `y` have been replace by pairs `x_t,x_b` and 
 The function `plot_tn` above does this conversion and then plots the ratios.
 Running the code above in a Jupyter notebook will print the above text and show this figure:
 
-![](../sine-cosine-plot.png)
+![](sine-cosine-plot.png)
 
 One could also hand the transcriptional network ODEs to gpac to integrate, if you want to directly access the data being plotted above.
 The `OdeResult` object returned by `gpac.integrate_odes` is the same returned by [`scipy.integrate.solve_ivp`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html), where the return value `sol` has a field `sol.y` that has the values of the variables in the order they were inserted into `tn_odes`, which will be the same as the order in which the original variables `x` and `y` were inserted, with `x_t` coming before `x_b`:
