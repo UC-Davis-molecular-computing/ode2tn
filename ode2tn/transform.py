@@ -89,40 +89,7 @@ def plot_tn(
         legend[sym_b] = f'${sym}^\\bot$'
 
     if resets is not None:
-        # make copy since we are going to change it
-        new_resets = {}
-        for time, reset in resets.items():
-            new_resets[time] = {}
-            for x, val in reset.items():
-                new_resets[time][x] = val
-        resets = new_resets
-        # normalize resets keys and check that variables are valid
-        for reset in resets.values():
-            for x, val in reset.items():
-                if isinstance(x, str):
-                    del reset[x]
-                    x = sp.symbols(x)
-                    reset[x] = val
-                if x not in odes.keys() and x not in tn_odes.keys():
-                    raise ValueError(f"Symbol {x} not found in original variables: {', '.join(odes.keys())},\n"
-                                     f"nor found in transcription network variables: {', '.join(tn_odes.keys())}")
-            # ensure if original variable x is in resets, then neither x_top nor x_bot are in the resets
-            # and substitute x_top and x_bot for x in resets
-            for x, ratio in tn_ratios.items():
-                # x is an original; so make sure neither x_top nor x_bot are in the reset dict
-                if x in reset:
-                    xt, xb = sp.fraction(ratio)
-                    if xt in reset:
-                        raise ValueError(f'Cannot use "top" variable {xt} in resets '
-                                         f'if original variable {x} is also used')
-                    if xb in reset:
-                        raise ValueError(f'Cannot use "bottom" variable {xb} in resets '
-                                         f'if original variable {x} is also used')
-                    reset[xt] = reset[x] * scale
-                    reset[xb] = scale
-                    del reset[x]
-
-
+        resets = update_resets_with_ratios(odes, resets, tn_odes, tn_syms, scale)
 
     return gp.plot(
         odes=tn_odes,
@@ -144,6 +111,43 @@ def plot_tn(
         loc=loc,
         **options,
     )
+
+
+def update_resets_with_ratios(odes, resets, tn_odes, tn_syms, scale: float = 1.0) -> dict[float, dict[sp.Symbol, float]]:
+    tn_ratios = {sym: sym_t / sym_b for sym, (sym_t, sym_b) in tn_syms.items()}
+    # make copy since we are going to change it
+    new_resets = {}
+    for time, reset in resets.items():
+        new_resets[time] = {}
+        for x, val in reset.items():
+            new_resets[time][x] = val
+    resets = new_resets
+    # normalize resets keys and check that variables are valid
+    for reset in resets.values():
+        for x, val in reset.items():
+            if isinstance(x, str):
+                del reset[x]
+                x = sp.symbols(x)
+                reset[x] = val
+            if x not in odes.keys() and x not in tn_odes.keys():
+                raise ValueError(f"Symbol {x} not found in original variables: {', '.join(odes.keys())},\n"
+                                 f"nor found in transcription network variables: {', '.join(tn_odes.keys())}")
+        # ensure if original variable x is in resets, then neither x_top nor x_bot are in the resets
+        # and substitute x_top and x_bot for x in resets
+        for x, ratio in tn_ratios.items():
+            # x is an original; so make sure neither x_top nor x_bot are in the reset dict
+            if x in reset:
+                xt, xb = sp.fraction(ratio)
+                if xt in reset:
+                    raise ValueError(f'Cannot use "top" variable {xt} in resets '
+                                     f'if original variable {x} is also used')
+                if xb in reset:
+                    raise ValueError(f'Cannot use "bottom" variable {xb} in resets '
+                                     f'if original variable {x} is also used')
+                reset[xt] = reset[x] * scale
+                reset[xb] = scale
+                del reset[x]
+    return resets
 
 
 def ode2tn(
@@ -187,7 +191,7 @@ def ode2tn(
     initial_values = initial_values_norm
 
     # normalize odes dict to use symbols as keys
-    odes_symbols = {}
+    odes_normalized = {}
     symbols_found_in_expressions = set()
     for symbol, expr in odes.items():
         if isinstance(symbol, str):
@@ -195,11 +199,12 @@ def ode2tn(
         if isinstance(expr, (str, int, float)):
             expr = sp.sympify(expr)
         symbols_found_in_expressions.update(expr.free_symbols)
-        odes_symbols[symbol] = expr
+        odes_normalized[symbol] = expr
+    odes = odes_normalized
 
     # ensure that all symbols that are keys in `initial_values` are also keys in `odes`
     initial_values_keys = set(initial_values.keys())
-    odes_keys = set(odes_symbols.keys())
+    odes_keys = set(odes.keys())
     diff = initial_values_keys - odes_keys
     if len(diff) > 0:
         raise ValueError(f"\nInitial_values contains symbols that are not in odes: "
@@ -215,7 +220,7 @@ def ode2tn(
                          f"The keys in the odes dict are: {odes_keys}")
 
     # ensure all odes are polynomials
-    for symbol, expr in odes_symbols.items():
+    for symbol, expr in odes_normalized.items():
         if not expr.is_polynomial():
             raise ValueError(f"ODE for {symbol}' is not a polynomial: {expr}")
 
@@ -255,7 +260,7 @@ def normalized_ode2tn(
         # tn_odes[x_bot] = p_neg * x_bot ** 2 / x_top + beta * x_bot / x_top - gamma * x_bot
         tn_odes[x_t] = beta * x_t / x_b + p_pos * x_b - gamma * x_t
         tn_odes[x_b] = beta + p_neg * x_b ** 2 / x_t - gamma * x_b
-        tn_inits[x_t] = initial_values[x] * scale
+        tn_inits[x_t] = initial_values.get(x, 0) * scale
         tn_inits[x_b] = scale
 
     return tn_odes, tn_inits, tn_syms
@@ -339,33 +344,46 @@ def comma_separated(elts: Iterable[Any]) -> str:
 
 
 def main():
-    from math import pi
+    import gpac as gp
     import numpy as np
     import sympy as sp
     from ode2tn import plot_tn, ode2tn
 
-    x, y = sp.symbols('x y')
+    P = 1
+    I = 1
+    D = 1
+    val, setpoint, bias, integral, derivative_p, derivative_m, delayed_val = \
+        sp.symbols('val setpoint bias integral derivative_p derivative_m delayed_val')
+    proportional_term = P * (setpoint - val)
+    integral_term = I * (integral - 10)
+    # derivative_term = D * (temperature - delayed_temperature)
+    c = 1
     odes = {
-        x: y - 2,
-        y: -x + 2,
+        val: proportional_term + integral_term,  # + derivative_term,
+        integral: setpoint - val,
+        delayed_val: c * (val - delayed_val),
+        setpoint: 0,
     }
     inits = {
-        x: 2,
-        y: 1,
+        val: 5,
+        setpoint: 7,
+        integral: 10,
     }
-    gamma = 2
+    t_eval = np.linspace(0, 40, 500)
+    figsize = (16, 4)
+    resets = {
+        10: {val: 9},
+        20: {val: 3},
+        30: {bias: 2},
+    }
+    gamma = 1
     beta = 1
-    t_eval = np.linspace(0, 6 * pi, 1000)
+    # plot_tn(odes, inits, t_eval, gamma=gamma, beta=beta, resets=resets, figure_size=figsize)
     tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma=gamma, beta=beta)
-    new_syms = [sym for pair in tn_syms.values() for sym in pair]  # all the new symbols; x_t, x_b, y_t, y_b
-    from IPython.display import display
-    for sym, expr in tn_odes.items():
-        print(f"{sym}' = ", end='')
-        display(expr)
-    print(f'{tn_inits=}')
-    print(f'{tn_syms=}')
-    figsize = (15, 6)
-    plot_tn(odes, inits, gamma=gamma, beta=beta, t_eval=t_eval, figure_size=figsize, symbols_to_plot=[[x, y], new_syms])
+    val_top = tn_syms[val][0]
+    tn_odes[val_top] += bias
+    tn_odes[bias] = 0
+    gp.plot(tn_odes, tn_inits, t_eval, resets=resets, figure_size=figsize)
 
 
 if __name__ == '__main__':

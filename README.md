@@ -37,12 +37,12 @@ inits = { # inits maps each symbol to its initial value
 gamma = 2 # uniform decay constant; should be set sufficiently large that ???
 beta = 1 # constant introduced to keep values from going to infinity or 0
 t_eval = np.linspace(0, 6*pi, 1000)
-tn_odes, tn_inits, tn_ratios = ode2tn(odes, inits, gamma, beta)
-for sym, expr in tn_odes.items():
-    print(f"{sym}' = {expr}")
-print(f'{tn_inits=}')
-print(f'{tn_ratios=}')
-plot_tn(odes, inits, gamma, beta, t_eval=t_eval)
+# tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma, beta)
+# for sym, expr in tn_odes.items():
+#     print(f"{sym}' = {expr}")
+# print(f'{tn_inits=}')
+# print(f'{tn_syms=}')
+plot_tn(odes, inits, gamma=gamma, beta=beta, t_eval=t_eval)
 ```
 
 This will print
@@ -53,7 +53,7 @@ x_b' = 2*x_b**2/x_t - 2*x_b + 1
 y_t' = 2*y_b - 2*y_t + y_t/y_b
 y_b' = -2*y_b + 1 + x_t*y_b**2/(x_b*y_t)
 tn_inits={x_t: 2, x_b: 1, y_t: 1, y_b: 1}
-tn_ratios={x: x_t/x_b, y: y_t/y_b}
+tn_syms={x: (x_t, x_b), y: (y_t, y_b)}
 ```
 
 showing that the variables `x` and `y` have been replace by pairs `x_t,x_b` and `y_t,y_b`, whose ratios `x_t/x_b` and `y_t/y_b` will track the values of the original variable `x` and `y` over time.
