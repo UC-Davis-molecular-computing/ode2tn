@@ -10,7 +10,7 @@ from scipy.integrate._ivp.ivp import OdeResult  # noqa
 
 def plot_tn(
         odes: dict[sp.Symbol | str, sp.Expr | str | float],
-        initial_values: dict[sp.Symbol | str, float],
+        initial_values: dict[sp.Symbol | str | gp.Specie, float],
         t_eval: Iterable[float] | None = None,
         *,
         gamma: float,
@@ -77,10 +77,16 @@ def plot_tn(
         Typically None, but if return_ode_result is True, returns the result of the ODE integration.
         See documentation of `gpac.plot` for details.
     """
-    tn_odes, tn_inits, tn_ratios = ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale)
+    tn_odes, tn_inits, tn_syms = ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale)
     dependent_symbols_tn = dict(dependent_symbols) if dependent_symbols is not None else {}
+    tn_ratios = {sym: sym_t/sym_b for sym, (sym_t, sym_b) in tn_syms.items()}
     dependent_symbols_tn.update(tn_ratios)
     symbols_to_plot = dependent_symbols_tn if symbols_to_plot is None else symbols_to_plot
+
+    legend = {}
+    for sym, (sym_t, sym_b) in tn_syms.items():
+        legend[sym_t] = f'${sym}^\\top$'
+        legend[sym_b] = f'${sym}^\\bot$'
 
     if resets is not None:
         # make copy since we are going to change it
@@ -105,7 +111,7 @@ def plot_tn(
             for x, ratio in tn_ratios.items():
                 # x is an original; so make sure neither x_top nor x_bot are in the reset dict
                 if x in reset:
-                    xt,xb = sp.fraction(ratio)
+                    xt, xb = sp.fraction(ratio)
                     if xt in reset:
                         raise ValueError(f'Cannot use "top" variable {xt} in resets '
                                          f'if original variable {x} is also used')
@@ -116,6 +122,8 @@ def plot_tn(
                     reset[xb] = scale
                     del reset[x]
 
+
+
     return gp.plot(
         odes=tn_odes,
         initial_values=tn_inits,
@@ -125,6 +133,7 @@ def plot_tn(
         resets=resets,
         figure_size=figure_size,
         symbols_to_plot=symbols_to_plot,
+        legend=legend,
         show=show,
         method=method,
         dense_output=dense_output,
@@ -139,12 +148,12 @@ def plot_tn(
 
 def ode2tn(
         odes: dict[sp.Symbol | str, sp.Expr | str | float],
-        initial_values: dict[sp.Symbol | str, float],
+        initial_values: dict[sp.Symbol | str | gp.Specie, float],
         *,
         gamma: float,
         beta: float,
         scale: float = 1.0,
-) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, sp.Expr]]:
+) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, tuple[sp.Symbol, sp.Symbol]]]:
     """
     Maps polynomial ODEs and and initial values to transcription network (represented by ODEs with positive
     Laurent polynomials and negative linear term) simulating it, as well as initial values.
@@ -155,7 +164,8 @@ def ode2tn(
             (representing RHS of ODEs)
             Raises ValueError if any of the ODEs RHS is not a polynomial
         initial_values: initial values,
-            dict of sympy symbols or strings (representing symbols) to floats
+            dict of sympy symbols or strings (representing symbols) or gpac.Specie (representing chemical
+            species, if the ODEs were derived from `gpac.crn_to_odes`) to floats
         gamma: coefficient of the negative linear term in the transcription network
         beta: additive constant in x_top ODE
         scale: "scaling factor" for the transcription network ODEs. Each variable `x` is replaced by a pair
@@ -163,12 +173,18 @@ def ode2tn(
             `x*scale`.
 
     Return:
-        triple (`tn_odes`, `tn_inits`, `tn_ratios`), where `tn_ratios` is a dict mapping each original symbol ``x``
-        in the original ODEs to the sympy.Expr ``x_top / x_bot``.
+        triple (`tn_odes`, `tn_inits`, `tn_syms`), where `tn_syms` is a dict mapping each original symbol ``x``
+        in the original ODEs to the pair ``(x_top, x_bot)``.
     """
     # normalize initial values dict to use symbols as keys
-    initial_values = {sp.Symbol(symbol) if isinstance(symbol, str) else symbol: value
-                      for symbol, value in initial_values.items()}
+    initial_values_norm = {}
+    for symbol, value in initial_values.items():
+        if isinstance(symbol, str):
+            symbol = sp.symbols(symbol)
+        if isinstance(symbol, gp.Specie):
+            symbol = sp.symbols(symbol.name)
+        initial_values_norm[symbol] = value
+    initial_values = initial_values_norm
 
     # normalize odes dict to use symbols as keys
     odes_symbols = {}
@@ -213,16 +229,14 @@ def normalized_ode2tn(
         gamma: float,
         beta: float,
         scale: float,
-) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, sp.Expr]]:
+) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, tuple[sp.Symbol, sp.Symbol]]]:
     # Assumes ode2tn has normalized and done error-checking
 
-    sym2pair: dict[sp.Symbol, tuple[sp.Symbol, sp.Symbol]] = {}
-    tn_ratios: dict[sp.Symbol, sp.Expr] = {}
+    tn_syms: dict[sp.Symbol, tuple[sp.Symbol, sp.Symbol]] = {}
     for x in odes.keys():
         # create x_t, x_b for each symbol x
-        x_top, x_bot = sp.symbols(f'{x}_t {x}_b')
-        sym2pair[x] = (x_top, x_bot)
-        tn_ratios[x] = x_top / x_bot
+        x_t, x_b = sp.symbols(f'{x}_t {x}_b')
+        tn_syms[x] = (x_t, x_b)
 
     tn_odes: dict[sp.Symbol, sp.Expr] = {}
     tn_inits: dict[sp.Symbol, float] = {}
@@ -231,19 +245,20 @@ def normalized_ode2tn(
 
         # replace sym with sym_top / sym_bot for each original symbol sym
         for sym in odes.keys():
-            sym_top, sym_bot = sym2pair[sym]
-            p_pos = p_pos.subs(sym, sym_top / sym_bot)
-            p_neg = p_neg.subs(sym, sym_top / sym_bot)
+            sym_top, sym_bot = tn_syms[sym]
+            ratio = sym_top / sym_bot
+            p_pos = p_pos.subs(sym, ratio)
+            p_neg = p_neg.subs(sym, ratio)
 
-        x_top, x_bot = sym2pair[x]
+        x_t, x_b = tn_syms[x]
         # tn_odes[x_top] = beta + p_pos * x_bot - gamma * x_top
         # tn_odes[x_bot] = p_neg * x_bot ** 2 / x_top + beta * x_bot / x_top - gamma * x_bot
-        tn_odes[x_top] = beta * x_top / x_bot + p_pos * x_bot - gamma * x_top
-        tn_odes[x_bot] = beta + p_neg * x_bot ** 2 / x_top - gamma * x_bot
-        tn_inits[x_top] = initial_values[x]*scale
-        tn_inits[x_bot] = scale
+        tn_odes[x_t] = beta * x_t / x_b + p_pos * x_b - gamma * x_t
+        tn_odes[x_b] = beta + p_neg * x_b ** 2 / x_t - gamma * x_b
+        tn_inits[x_t] = initial_values[x] * scale
+        tn_inits[x_b] = scale
 
-    return tn_odes, tn_inits, tn_ratios
+    return tn_odes, tn_inits, tn_syms
 
 
 def split_polynomial(expr: sp.Expr) -> tuple[sp.Expr, sp.Expr]:
@@ -324,60 +339,33 @@ def comma_separated(elts: Iterable[Any]) -> str:
 
 
 def main():
-    x_sp, y_sp = gp.species('x y')
-    rxns = [
-        x_sp >> x_sp + y_sp,
-        (3 * y_sp | 2 * y_sp).k(11).r(16.5),
-        (y_sp >> gp.empty).k(6.5),
-    ]
-    odes = gp.crn_to_odes(rxns)
-    # extract symbols from odes
-    for var in odes.keys():
-        if var.name == 'x':
-            x = var
-        if var.name == 'y':
-            y = var
-    # for v,ode in odes.items():
-    #     print(f"{v}' = {ode}")
-    inits = {
-        x: 1,
-        y: 0.5,
-    }
-    gamma = 20
-    beta = 1
-    scale = 0.1
+    from math import pi
     import numpy as np
-    t_eval = np.linspace(0, 20, 500)
+    import sympy as sp
+    from ode2tn import plot_tn, ode2tn
 
-    tn_odes, tn_inits, tn_ratios = ode2tn(odes, inits, gamma=gamma, beta=beta, scale=scale)
-    for ratio_symbol in tn_inits.keys():
-        if ratio_symbol.name == 'x_t':
-            xt = ratio_symbol
-        if ratio_symbol.name == 'x_b':
-            xb = ratio_symbol
-        if ratio_symbol.name == 'y_t':
-            yt = ratio_symbol
-        if ratio_symbol.name == 'y_b':
-            yb = ratio_symbol
+    x, y = sp.symbols('x y')
+    odes = {
+        x: y - 2,
+        y: -x + 2,
+    }
+    inits = {
+        x: 2,
+        y: 1,
+    }
+    gamma = 2
+    beta = 1
+    t_eval = np.linspace(0, 6 * pi, 1000)
+    tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma=gamma, beta=beta)
+    new_syms = [sym for pair in tn_syms.values() for sym in pair]  # all the new symbols; x_t, x_b, y_t, y_b
     from IPython.display import display
     for sym, expr in tn_odes.items():
         print(f"{sym}' = ", end='')
-        display(sp.simplify(expr))
+        display(expr)
     print(f'{tn_inits=}')
-    print(f'{tn_ratios=}')
-    # for var, val in tn_inits.items():
-    #     tn_inits[var] *= 0.1
-    # print(f'after reducing t/b values by 10x: {tn_inits=}')
+    print(f'{tn_syms=}')
     figsize = (15, 6)
-    resets = {
-        5: {x: 0.5},
-        10: {x: 0.01},
-        15: {x: 0.5},
-    }
-    scale = 0.1
-    plot_tn(odes, inits, gamma=gamma, beta=beta, scale=scale,
-            t_eval=t_eval, resets=resets, figure_size=figsize,
-            symbols_to_plot=[[x, y], [xt, xb, yt, yb]])
+    plot_tn(odes, inits, gamma=gamma, beta=beta, t_eval=t_eval, figure_size=figsize, symbols_to_plot=[[x, y], new_syms])
 
 
 if __name__ == '__main__':
