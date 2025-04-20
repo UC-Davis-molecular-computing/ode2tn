@@ -64,20 +64,20 @@ The `OdeResult` object returned by `gpac.integrate_odes` is the same returned by
 t_eval = np.linspace(0, 2*pi, 5)
 sol = gp.integrate_odes(tn_odes, tn_inits, t_eval)
 print(f'times = {sol.t}')
-print(f'x_t = {sol.y[0]}')
-print(f'x_b = {sol.y[1]}')
-print(f'y_t = {sol.y[2]}')
-print(f'y_b = {sol.y[3]}')
+print(f'x_t   = {sol.y[0]}')
+print(f'x_b   = {sol.y[1]}')
+print(f'y_t   = {sol.y[2]}')
+print(f'y_b   = {sol.y[3]}')
 ```
 
 which would print
 
 ```
 times = [0.         1.57079633 3.14159265 4.71238898 6.28318531]
-x_t = [2.         1.78280757 3.67207594 2.80592514 1.71859172]
-x_b = [1.         1.78425369 1.83663725 0.93260227 0.859926  ]
-y_t = [1.         1.87324904 2.14156469 2.10338162 2.74383426]
-y_b = [1.         0.93637933 0.71348949 1.05261915 2.78279691]
+x_t   = [2.         1.78280757 3.67207594 2.80592514 1.71859172]
+x_b   = [1.         1.78425369 1.83663725 0.93260227 0.859926  ]
+y_t   = [1.         1.87324904 2.14156469 2.10338162 2.74383426]
+y_b   = [1.         0.93637933 0.71348949 1.05261915 2.78279691]
 ```
 
 
