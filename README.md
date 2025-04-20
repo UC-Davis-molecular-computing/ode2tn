@@ -37,11 +37,6 @@ inits = { # inits maps each symbol to its initial value
 gamma = 2 # uniform decay constant; should be set sufficiently large that ???
 beta = 1 # constant introduced to keep values from going to infinity or 0
 t_eval = np.linspace(0, 6*pi, 1000)
-# tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma, beta)
-# for sym, expr in tn_odes.items():
-#     print(f"{sym}' = {expr}")
-# print(f'{tn_inits=}')
-# print(f'{tn_syms=}')
 plot_tn(odes, inits, gamma=gamma, beta=beta, t_eval=t_eval)
 ```
 
