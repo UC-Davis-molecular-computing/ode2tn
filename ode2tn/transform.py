@@ -18,6 +18,7 @@ def plot_tn(
         scale: float = 1.0,
         t_span: tuple[float, float] | None = None,
         show_factors: bool = False,
+        latex_legend: bool = True,
         resets: dict[float, dict[sp.Symbol | str, float]] | None = None,
         dependent_symbols: dict[sp.Symbol | str, sp.Expr | str] | None = None,
         figure_size: tuple[float, float] = (10, 3),
@@ -61,6 +62,12 @@ def plot_tn(
             `symbols_to_plot` to ``[ratios, factors]``, where ratios is a list of dependent symbols
             `x=x_top/x_bot`, and factors is a list of symbols with the transcription factors `x_top`, `x_bot`,
             for each original variable `x`.
+        latex_legend: If True, surround each symbol name with dollar signs, unless it is already surrounded with them,
+            so that the legend is interpreted as LaTeX. If this is True, then the symbol name must either
+            start and end with `$`, or neither start nor end with `$`. Unlike in the gpac package, this is True
+            by default. The names of transcription factors are automatically surrounded by dollar signs.
+            This option makes sure the legend showing original variables (or dependent symbols) also have `$` added
+            so as to be interpreted as LaTeX.
         resets:
             If specified, this is a dict mapping times to "configurations"
             (i.e., dict mapping symbols/str to values).
@@ -112,6 +119,7 @@ def plot_tn(
         dependent_symbols=dependent_symbols_tn,
         resets=resets,
         figure_size=figure_size,
+        latex_legend=latex_legend,
         symbols_to_plot=symbols_to_plot,
         legend=legend,
         show=show,
