@@ -75,8 +75,8 @@ in a Jupyter notebook will show this figure:
 
 ![](sine-cosine-plot.svg)
 
-The parameter `show_factors` above indicates to show a second subplot with the underlying transcription factors.
-If left unspecified, it defaults to `False` and plots only the original values (ratios of pairs of transcription factors).
+The parameter `show_factors` above indicates to show a second subplot with the underlying transcription factors ($x^\top, x^\bot, y^\top, y^\bot$ above).
+If left unspecified, it defaults to `False` and plots only the original values (ratios of pairs of transcription factors, $x,y$ above).
 
 One could also hand the transcriptional network ODEs to [gpac](https://github.com/UC-Davis-molecular-computing/gpac) to integrate, if you want to directly access the data being plotted above.
 The `OdeResult` object returned by `gpac.integrate_odes` is the same returned by [`scipy.integrate.solve_ivp`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html), where the return value `sol` has a field `sol.y` that has the values of the variables in the order they were inserted into `tn_odes`, which will be the same as the order in which the original variables `x` and `y` were inserted, with `x_t` coming before `x_b`:
