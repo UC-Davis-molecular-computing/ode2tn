@@ -17,6 +17,7 @@ def plot_tn(
         beta: float,
         scale: float = 1.0,
         t_span: tuple[float, float] | None = None,
+        show_factors: bool = False,
         resets: dict[float, dict[sp.Symbol | str, float]] | None = None,
         dependent_symbols: dict[sp.Symbol | str, sp.Expr | str] | None = None,
         figure_size: tuple[float, float] = (10, 3),
@@ -54,6 +55,12 @@ def plot_tn(
         scale: "scaling factor" for the transcription network ODEs. Each variable `x` is replaced by a pair
             (`x_top`, `x_bot`). The initial `x_bot` value is `scale`, and the initial `x_top` value is
             `x*scale`.
+        show_factors: if True, then in addition to plotting the ratios x_top/x_bot,
+            also plot the factors x_top and x_bot separately in a second plot.
+            Mutually exlusive with `symbols_to_plot`, since it is equivalent to setting
+            `symbols_to_plot` to ``[ratios, factors]``, where ratios is a list of dependent symbols
+            `x=x_top/x_bot`, and factors is a list of symbols with the transcription factors `x_top`, `x_bot`,
+            for each original variable `x`.
         resets:
             If specified, this is a dict mapping times to "configurations"
             (i.e., dict mapping symbols/str to values).
@@ -77,11 +84,17 @@ def plot_tn(
         Typically None, but if return_ode_result is True, returns the result of the ODE integration.
         See documentation of `gpac.plot` for details.
     """
+    if show_factors and symbols_to_plot is not None:
+        raise ValueError("Cannot use both show_factors and symbols_to_plot at the same time.")
+
     tn_odes, tn_inits, tn_syms = ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale)
     dependent_symbols_tn = dict(dependent_symbols) if dependent_symbols is not None else {}
     tn_ratios = {sym: sym_t/sym_b for sym, (sym_t, sym_b) in tn_syms.items()}
     dependent_symbols_tn.update(tn_ratios)
     symbols_to_plot = dependent_symbols_tn if symbols_to_plot is None else symbols_to_plot
+
+    if show_factors:
+        symbols_to_plot = [symbols_to_plot, [factor for pair in tn_syms.values() for factor in pair]]
 
     legend = {}
     for sym, (sym_t, sym_b) in tn_syms.items():
