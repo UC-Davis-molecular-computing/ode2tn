@@ -36,31 +36,52 @@ inits = { # inits maps each symbol to its initial value
 }
 gamma = 2 # uniform decay constant; should be set sufficiently large that ???
 beta = 1 # constant introduced to keep values from going to infinity or 0
-t_eval = np.linspace(0, 6*pi, 1000)
-plot_tn(odes, inits, gamma=gamma, beta=beta, t_eval=t_eval, show_factors=True)
+tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma=gamma, beta=beta)
+gp.display_odes(tn_odes)
+print(f'{tn_inits=}')
+print(f'{tn_syms=}')
 ```
 
-This will print
+When run in a Jupyter notebook, this will show
 
+![](ode-display.png)
+
+showing that the variables `x` and `y` have been replace by pairs `x_t,x_b` and `y_t,y_b`, whose ratios `x_t/x_b` and `y_t/y_b` will track the values of the original variable `x` and `y` over time.
+
+If not in a Jupyter notebook, one could also inspect the transcriptional network ODEs via
+```python
+for var, ode in tn_odes.items():
+    print(f"{var}' = {ode}")
+```
+which would print a text-based version of the equations:
 ```
 x_t' = x_b*y_t/y_b - 2*x_t + x_t/x_b
 x_b' = 2*x_b**2/x_t - 2*x_b + 1
 y_t' = 2*y_b - 2*y_t + y_t/y_b
 y_b' = -2*y_b + 1 + x_t*y_b**2/(x_b*y_t)
-tn_inits={x_t: 2, x_b: 1, y_t: 1, y_b: 1}
-tn_syms={x: (x_t, x_b), y: (y_t, y_b)}
 ```
 
-showing that the variables `x` and `y` have been replace by pairs `x_t,x_b` and `y_t,y_b`, whose ratios `x_t/x_b` and `y_t/y_b` will track the values of the original variable `x` and `y` over time.
-The function `plot_tn` above does this conversion and then plots the ratios.
-Running the code above in a Jupyter notebook will print the above text and show this figure:
+The function `plot_tn` above does this conversion on the *original* odes and then plots the ratios.
+Running 
+
+```python
+t_eval = np.linspace(0, 6*pi, 1000)
+# note below it is odes and inits, not tn_odes and tn_inits
+# plot_tn calls ode2tn to convert the ODEs before plotting
+plot_tn(odes, inits, gamma=gamma, beta=beta, t_eval=t_eval, show_factors=True)
+```
+
+in a Jupyter notebook will show this figure:
 
 ![](sine-cosine-plot.svg)
 
-One could also hand the transcriptional network ODEs to gpac to integrate, if you want to directly access the data being plotted above.
+The parameter `show_factors` above indicates to show a second subplot with the underlying transcription factors.
+If left unspecified, it defaults to `False` and plots only the original values (ratios of pairs of transcription factors).
+
+One could also hand the transcriptional network ODEs to [gpac](https://github.com/UC-Davis-molecular-computing/gpac) to integrate, if you want to directly access the data being plotted above.
 The `OdeResult` object returned by `gpac.integrate_odes` is the same returned by [`scipy.integrate.solve_ivp`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html), where the return value `sol` has a field `sol.y` that has the values of the variables in the order they were inserted into `tn_odes`, which will be the same as the order in which the original variables `x` and `y` were inserted, with `x_t` coming before `x_b`:
 
-```
+```python
 t_eval = np.linspace(0, 2*pi, 5)
 sol = gp.integrate_odes(tn_odes, tn_inits, t_eval)
 print(f'times = {sol.t}')
