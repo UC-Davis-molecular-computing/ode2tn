@@ -317,7 +317,7 @@ def split_polynomial(expr: sp.Expr) -> tuple[sp.Expr, sp.Expr]:
             else:
                 # For negative coefficients, add the negated term to p2
                 p_neg += -term
-    elif expanded.is_Mul:
+    elif expanded.is_Mul or expanded.is_Pow:
         # If it's a single term, just check the sign; is_Mul for things like x*y or -x (represented as -1*x)
         coeff = next((arg for arg in expanded.args if arg.is_number), 1)
         if coeff > 0:
@@ -347,43 +347,19 @@ def main():
     import gpac as gp
     import numpy as np
     import sympy as sp
-    from ode2tn import plot_tn, ode2tn
+    from ode2tn import plot_tn
 
-    P = 1
-    I = 1
-    D = 1
-    val, setpoint, bias, integral, derivative_p, derivative_m, delayed_val = \
-        sp.symbols('val setpoint bias integral derivative_p derivative_m delayed_val')
-    proportional_term = P * (setpoint - val)
-    integral_term = I * (integral - 10)
-    # derivative_term = D * (temperature - delayed_temperature)
-    c = 1
-    odes = {
-        val: proportional_term + integral_term,  # + derivative_term,
-        integral: setpoint - val,
-        delayed_val: c * (val - delayed_val),
-        setpoint: 0,
-    }
-    inits = {
-        val: 5,
-        setpoint: 7,
-        integral: 10,
-    }
-    t_eval = np.linspace(0, 40, 500)
-    figsize = (16, 4)
-    resets = {
-        10: {val: 9},
-        20: {val: 3},
-        30: {bias: 2},
-    }
+    x = gp.species('X')
+    rxns = [2 * x >> 3 * x]
+    odes = gp.crn_to_odes(rxns)
+    inits = {x: 1}
+    t_eval = np.linspace(0, 1, 100)
     gamma = 1
     beta = 1
-    # plot_tn(odes, inits, t_eval, gamma=gamma, beta=beta, resets=resets, figure_size=figsize)
-    tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma=gamma, beta=beta)
-    val_top = tn_syms[val][0]
-    tn_odes[val_top] += bias
-    tn_odes[bias] = 0
-    gp.plot(tn_odes, tn_inits, t_eval, resets=resets, figure_size=figsize)
+    # figsize = (16,4)
+
+    # gp.plot_crn(rxns, inits, t_eval, figure_size=figsize)
+    plot_tn(odes, inits, t_eval, gamma=gamma, beta=beta)
 
 
 if __name__ == '__main__':
