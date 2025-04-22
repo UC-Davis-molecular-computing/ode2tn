@@ -34,9 +34,9 @@ inits = {     # inits maps each symbol to its initial value
     x: 2,     # x(0) = 2
     y: 1,     # y(0) = 1
 }
-gamma = 2 # uniform decay constant; should have gamma > max q^-; 
-          #   see proof of main Theorem in paper for what q^- is
-beta = 1  # constant introduced to keep values from going to infinity or 0
+gamma = 2     # uniform decay constant; should have gamma > max q^-; 
+              #   see proof of main Theorem in paper for what q^- is
+beta = 1      # constant introduced to keep values from going to infinity or 0
 tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma=gamma, beta=beta)
 gp.display_odes(tn_odes)  # displays nice rendered LaTeX in Jupyter notebook
 print(f'{tn_inits=}')
