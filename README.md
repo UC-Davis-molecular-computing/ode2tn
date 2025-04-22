@@ -13,7 +13,7 @@ See the [notebook.ipynb](notebook.ipynb) for more examples of usage, including a
 
 The functions `ode2tn` and `plot_tn` are the main elements of the package.
 `ode2tn` converts a system of arbitrary polynomial ODEs into another system of ODEs representing a transcriptional network as defined in the paper above.
-Each variable $x$ in the original ODEs is represented by a pair of variables $x^\top,x^\bot$, whose ratio $x^\top / x^\bot$ follows the same dynamics in the transcriptional network as $x$ does in the original ODEs.
+Each variable $x$ in the original ODEs is represented by a pair of variables $x^\top,x^\bot$, whose ratio $\frac{x^\top}{x^\bot}$ follows the same dynamics in the transcriptional network as $x$ does in the original ODEs.
 `plot_tn` does this conversion and then plots the ratios by default, although it can be customized what exactly is plotted; 
 see the documentation for [gpac.plot](https://gpac.readthedocs.io/en/latest/#gpac.ode.plot) for a description of all options.
 
