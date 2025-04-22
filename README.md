@@ -44,7 +44,7 @@ print(f'{tn_syms=}')
 
 When run in a Jupyter notebook, this will show
 
-![](ode-display.png)
+![](images/ode-display.png)
 
 showing that the variables `x` and `y` have been replace by pairs `x_t,x_b` and `y_t,y_b`, whose ratios `x_t/x_b` and `y_t/y_b` will track the values of the original variable `x` and `y` over time.
 
@@ -73,7 +73,7 @@ plot_tn(odes, inits, gamma=gamma, beta=beta, t_eval=t_eval, show_factors=True)
 
 in a Jupyter notebook will show this figure:
 
-![](sine-cosine-plot.svg)
+![](images/sine-cosine-plot.svg)
 
 The parameter `show_factors` above indicates to show a second subplot with the underlying transcription factors ($x^\top, x^\bot, y^\top, y^\bot$ above).
 If left unspecified, it defaults to `False` and plots only the original values (ratios of pairs of transcription factors, $x,y$ above).
