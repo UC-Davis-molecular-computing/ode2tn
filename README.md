@@ -9,7 +9,7 @@ Type `pip install ode2tn` at the command line.
 
 ## Usage
 
-See the [notebook.ipynb](notebook.ipynb) for more examples of usage.
+See the [notebook.ipynb](notebook.ipynb) for more examples of usage, including all the examples discussed in the paper.
 
 The functions `ode2tn` and `plot_tn` are the main elements of the package.
 `ode2tn` converts a system of arbitrary polynomial ODEs into another system of ODEs representing a transcriptional network as defined in the paper above.
