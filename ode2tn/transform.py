@@ -209,6 +209,7 @@ def ode2tn(
         gamma: float,
         beta: float,
         scale: float = 1.0,
+        ignore: Iterable[sp.Symbol] = (),
         existing_factors: Iterable[sp.Symbol | str] = (),
         verify_negative_term: bool = True,
 ) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, tuple[sp.Symbol, sp.Symbol]]]:
@@ -233,6 +234,10 @@ def ode2tn(
         scale: "scaling factor" for the transcription network ODEs. Each variable `x` is replaced by a pair
             (`x_top`, `x_bot`). The initial `x_bot` value is `scale`, and the initial `x_top` value is
             `x*scale`.
+
+        ignore: variables to ignore and not transform into `x_top` and `x_bot` variables. Note this is different
+            from `existing_factors`, in the sense that variables in `ignore` are not put into the output
+            ODEs.
 
         existing_factors: iterable of symbols (or strings with names of symbols) to "pass through" unchanged.
             These symbols are not transformed into `x_top` and `x_bot` variables, but are interpreted as
@@ -306,7 +311,7 @@ def ode2tn(
         if not expr.is_polynomial():
             raise ValueError(f"ODE for {symbol}' is not a polynomial: {expr}")
 
-    return normalized_ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale,
+    return normalized_ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale, ignore=list(ignore),
                              existing_factors=existing_factors, verify_negative_term=verify_negative_term)
 
 
@@ -464,6 +469,7 @@ def normalized_ode2tn(
         gamma: float,
         beta: float,
         scale: float,
+        ignore: list[sp.Symbol],
         existing_factors: list[sp.Symbol],
         verify_negative_term: bool,
 ) -> tuple[dict[sp.Symbol, sp.Expr], dict[sp.Symbol, float], dict[sp.Symbol, tuple[sp.Symbol, sp.Symbol]]]:
@@ -471,7 +477,7 @@ def normalized_ode2tn(
 
     tn_syms: dict[sp.Symbol, tuple[sp.Symbol, sp.Symbol]] = {}
     for x in odes.keys():
-        if x not in existing_factors:
+        if x not in existing_factors and x not in ignore:
             # create x_t, x_b for each symbol x
             x_t, x_b = sp.symbols(f'{x}_t {x}_b')
             tn_syms[x] = (x_t, x_b)
@@ -479,6 +485,8 @@ def normalized_ode2tn(
     tn_odes: dict[sp.Symbol, sp.Expr] = {}
     tn_inits: dict[sp.Symbol, float] = {}
     for x, ode in odes.items():
+        if x in ignore:
+            continue
         if x in existing_factors:
             check_x_is_transcription_factor(x, odes[x], gamma=gamma, verify_negative_term=verify_negative_term)
             ode = odes[x]
@@ -492,7 +500,7 @@ def normalized_ode2tn(
 
         # replace sym with sym_top / sym_bot for each original symbol sym
         for sym in odes.keys():
-            if sym in existing_factors:
+            if sym in existing_factors or sym in ignore:
                 continue
             sym_top, sym_bot = tn_syms[sym]
             ratio = sym_top / sym_bot
