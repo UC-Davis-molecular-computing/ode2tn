@@ -1,6 +1,6 @@
 [project]
 name = "ode2tn"
-version = "1.0.4"
+version = "1.0.5"
 description = "A Python package to turn arbitrary polynomial ODEs into a transcriptional network simulating it."
 authors = [
     { name="Dave Doty", email="doty@ucdavis.edu" }
