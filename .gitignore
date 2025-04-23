@@ -1,4 +1,5 @@
 .virtual_documents
+private-notebook.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
