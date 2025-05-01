@@ -23,6 +23,7 @@ Here is a typical way to call each function:
 from math import pi
 import numpy as np
 import sympy as sp
+import gpac as gp
 from transform import plot_tn, ode2tn
 
 x,y = sp.symbols('x y')
