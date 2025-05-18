@@ -15,8 +15,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/UC-Davis-molecular-computing/ode-to-transcription-network"
-Issues = "https://github.com/UC-Davis-molecular-computing/ode-to-transcription-network/issues"
+Homepage = "https://github.com/UC-Davis-molecular-computing/ode2tn"
+Issues = "https://github.com/UC-Davis-molecular-computing/ode2tn/issues"
 
 [build-system]
 requires = ["setuptools>=61.0"]
