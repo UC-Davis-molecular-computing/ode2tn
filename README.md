@@ -103,4 +103,5 @@ y_t   = [1.         1.87324904 2.14156469 2.10338162 2.74383426]
 y_b   = [1.         0.93637933 0.71348949 1.05261915 2.78279691]
 ```
 
-
+## Usage
+Funding for this work was provided by the US Department of Energy, under award DE-SC0024467.
