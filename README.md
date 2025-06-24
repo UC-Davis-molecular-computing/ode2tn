@@ -104,4 +104,4 @@ y_b   = [1.         0.93637933 0.71348949 1.05261915 2.78279691]
 ```
 
 ## Usage
-Funding for this work was provided by the US Department of Energy, under [award DE-SC0024467](https://pamspublic.science.energy.gov/WebPAMSExternal/Interface/Common/ViewPublicAbstract.aspx?rv=951d8de9-eec9-43a5-b112-357143330f8c&rtc=24&PRoleId=10).
+Funding for this work was provided by the US Department of Energy, under [award DE-SC0024467](https://pamspublic.science.energy.gov/WebPAMSExternal/Interface/Common/ViewPublicAbstract.aspx?rv=951d8de9-eec9-43a5-b112-357143330f8c&rtc=24).
