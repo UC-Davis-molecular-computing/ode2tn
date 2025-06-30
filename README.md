@@ -35,8 +35,11 @@ inits = {     # inits maps each symbol to its initial value
     x: 2,     # x(0) = 2
     y: 1,     # y(0) = 1
 }
-gamma = 2     # uniform decay constant; should have gamma > max q^-; 
-              #   see proof of main Theorem in paper for what q^- is
+gamma = 3     # uniform decay constant; should have gamma > max q_i^- for i=1,2; 
+              #   see proof of main Theorem in paper
+              # In this case, q_1 = -2 (negative term for x') and q_2 = x (negative term for y').
+              # Since x takes a maximum value of 3 in the shifted oscillator, the max value
+              # of the q_i^- is 3, so we can use gamma=3.
 beta = 1      # constant introduced to keep values from going to infinity or 0
 tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma=gamma, beta=beta)
 gp.display_odes(tn_odes)  # displays nice rendered LaTeX in Jupyter notebook
