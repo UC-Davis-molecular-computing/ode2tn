@@ -9,23 +9,23 @@ from scipy.integrate._ivp.ivp import OdeResult  # noqa
 
 
 def plot_tn(
-        odes: dict[sp.Symbol | str, sp.Expr | str | float],
-        initial_values: dict[sp.Symbol | str | gp.Specie, float],
+        odes: dict[sp.Symbol, sp.Expr | str | float],
+        inits: dict[sp.Symbol | gp.Specie, float],
         t_eval: Iterable[float] | None = None,
         *,
         gamma: float,
         beta: float,
         scale: float = 1.0,
-        existing_factors: Iterable[sp.Symbol | str] = (),
+        existing_factors: Iterable[sp.Symbol] = (),
         verify_negative_term: bool = True,
         t_span: tuple[float, float] | None = None,
         show_factors: bool = False,
         latex_legend: bool = True,
-        resets: dict[float, dict[sp.Symbol | str, float]] | None = None,
-        dependent_symbols: dict[sp.Symbol | str, sp.Expr | str] | None = None,
-        figure_size: tuple[float, float] = (10, 3),
-        symbols_to_plot: Iterable[sp.Symbol | str] |
-                         Iterable[Iterable[sp.Symbol | str]] |
+        resets: dict[float, dict[sp.Symbol, float]] | None = None,
+        dependent_symbols: dict[sp.Symbol, sp.Expr] | None = None,
+        figsize: tuple[float, float] = (10, 3),
+        symbols_to_plot: Iterable[sp.Symbol] |
+                         Iterable[Iterable[sp.Symbol]] |
                          str |
                          re.Pattern |
                          Iterable[re.Pattern] |
@@ -43,7 +43,7 @@ def plot_tn(
     """
     Plot transcription network (TN) ODEs and initial values.
 
-    For arguments other than odes, initial_values, gamma, and beta, see the documentation for
+    For arguments other than odes, inits, gamma, and beta, see the documentation for
     `plot` in the gpac library.
 
     Args:
@@ -52,7 +52,7 @@ def plot_tn(
             (representing RHS of ODEs)
             Raises ValueError if any of the ODEs RHS is not a polynomial
 
-        initial_values: initial values,
+        inits: initial values,
             dict of sympy symbols or strings (representing symbols) to floats
 
         gamma: coefficient of the negative linear term in the transcription network
@@ -123,13 +123,15 @@ def plot_tn(
     if show_factors and symbols_to_plot is not None:
         raise ValueError("Cannot use both show_factors and symbols_to_plot at the same time.")
 
-    tn_odes, tn_inits, tn_syms = ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale,
+    tn_odes, tn_inits, tn_syms = ode2tn(odes, inits, gamma=gamma, beta=beta, scale=scale,
                                         existing_factors=existing_factors,
                                         verify_negative_term=verify_negative_term)
     dependent_symbols_tn = dict(dependent_symbols) if dependent_symbols is not None else {}
     tn_ratios = {sym: sym_t/sym_b for sym, (sym_t, sym_b) in tn_syms.items()}
     dependent_symbols_tn.update(tn_ratios)
-    symbols_to_plot = dependent_symbols_tn if symbols_to_plot is None else symbols_to_plot
+
+    assert symbols_to_plot is None or not show_factors
+    symbols_to_plot = list(dependent_symbols_tn.keys()) if symbols_to_plot is None else symbols_to_plot
 
     if show_factors:
         symbols_to_plot = [symbols_to_plot, [factor for pair in tn_syms.values() for factor in pair]]
@@ -144,12 +146,12 @@ def plot_tn(
 
     return gp.plot(
         odes=tn_odes,
-        initial_values=tn_inits,
+        inits=tn_inits,
         t_eval=t_eval,
         t_span=t_span,
         dependent_symbols=dependent_symbols_tn,
         resets=resets,
-        figure_size=figure_size,
+        figsize=figsize,
         latex_legend=latex_legend,
         symbols_to_plot=symbols_to_plot,
         legend=legend,
@@ -204,7 +206,7 @@ def update_resets_with_ratios(odes, resets, tn_odes, tn_syms, scale: float = 1.0
 
 def ode2tn(
         odes: dict[sp.Symbol | str, sp.Expr | str | float],
-        initial_values: dict[sp.Symbol | str | gp.Specie, float],
+        inits: dict[sp.Symbol | str | gp.Specie, float],
         *,
         gamma: float,
         beta: float,
@@ -223,7 +225,7 @@ def ode2tn(
             (representing RHS of ODEs)
             Raises ValueError if any of the ODEs RHS is not a polynomial
 
-        initial_values: initial values,
+        inits: initial values,
             dict of sympy symbols or strings (representing symbols) or gpac.Specie (representing chemical
             species, if the ODEs were derived from `gpac.crn_to_odes`) to floats
 
@@ -264,14 +266,14 @@ def ode2tn(
         in the original ODEs to the pair ``(x_top, x_bot)``.
     """
     # normalize initial values dict to use symbols as keys
-    initial_values_norm = {}
-    for symbol, value in initial_values.items():
+    inits_norm = {}
+    for symbol, value in inits.items():
         if isinstance(symbol, str):
             symbol = sp.symbols(symbol)
         if isinstance(symbol, gp.Specie):
             symbol = sp.symbols(symbol.name)
-        initial_values_norm[symbol] = value
-    initial_values = initial_values_norm
+        inits_norm[symbol] = value
+    inits = inits_norm
 
     # normalize existing_factors to be symbols
     existing_factors: list[sp.Symbol] = [sp.Symbol(factor) if isinstance(factor, str) else factor
@@ -289,12 +291,12 @@ def ode2tn(
         odes_normalized[symbol] = expr
     odes = odes_normalized
 
-    # ensure that all symbols that are keys in `initial_values` are also keys in `odes`
-    initial_values_keys = set(initial_values.keys())
+    # ensure that all symbols that are keys in `inits` are also keys in `odes`
+    inits_keys = set(inits.keys())
     odes_keys = set(odes.keys())
-    diff = initial_values_keys - odes_keys
+    diff = inits_keys - odes_keys
     if len(diff) > 0:
-        raise ValueError(f"\nInitial_values contains symbols that are not in odes: "
+        raise ValueError(f"\ninits contains symbols that are not in odes: "
                          f"{comma_separated(diff)}"
                          f"\nHere are the symbols of the ODES:                     "
                          f"{comma_separated(odes_keys)}")
@@ -311,7 +313,7 @@ def ode2tn(
         if not expr.is_polynomial():
             raise ValueError(f"ODE for {symbol}' is not a polynomial: {expr}")
 
-    return normalized_ode2tn(odes, initial_values, gamma=gamma, beta=beta, scale=scale, ignore=list(ignore),
+    return normalized_ode2tn(odes, inits, gamma=gamma, beta=beta, scale=scale, ignore=list(ignore),
                              existing_factors=existing_factors, verify_negative_term=verify_negative_term)
 
 
@@ -464,7 +466,7 @@ def is_approximately_equal(a: float, b: float, rtol: float = 1e-5, atol: float =
 
 def normalized_ode2tn(
         odes: dict[sp.Symbol, sp.Expr],
-        initial_values: dict[sp.Symbol, float],
+        inits: dict[sp.Symbol, float],
         *,
         gamma: float,
         beta: float,
@@ -494,7 +496,7 @@ def normalized_ode2tn(
                 ratio = y_t / y_b
                 ode = ode.subs(y, ratio)
             tn_odes[x] = ode
-            tn_inits[x] = initial_values.get(x, 0) * scale
+            tn_inits[x] = inits.get(x, 0) * scale
             continue
         p_pos, p_neg = split_polynomial(ode)
 
@@ -510,7 +512,7 @@ def normalized_ode2tn(
         x_t, x_b = tn_syms[x]
         tn_odes[x_t] = beta * x_t / x_b + p_pos * x_b - gamma * x_t
         tn_odes[x_b] = beta + p_neg * x_b ** 2 / x_t - gamma * x_b
-        tn_inits[x_t] = initial_values.get(x, 0) * scale
+        tn_inits[x_t] = inits.get(x, 0) * scale
         tn_inits[x_b] = scale
         check_x_is_transcription_factor(x_t, tn_odes[x_t], gamma=gamma, verify_negative_term=False)
         check_x_is_transcription_factor(x_b, tn_odes[x_b], gamma=gamma, verify_negative_term=False)
