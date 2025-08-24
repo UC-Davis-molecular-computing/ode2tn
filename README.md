@@ -1,7 +1,7 @@
 # ode2tn
 ode2tn is a Python package to compile arbitrary polynomial ODEs into a transcriptional network simulating the ODEs.
 
-See this paper for details: TODO
+See this paper for details: https://www.arxiv.org/abs/2508.14017
 
 ## Installation
 
